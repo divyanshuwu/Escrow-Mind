@@ -1,0 +1,80 @@
+services:
+  # ----------------------------------------------------------------------------
+  # 1. ESCROWMIND BACKEND API (Express + TypeScript)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: escrowmind-api
+    runtime: node
+    rootDir: apps/api
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: KERNEL_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: INTERNAL_WORKFLOW_SECRET
+        generateValue: true
+      - key: AUTO_APPROVE_THRESHOLD
+        value: 80
+      - key: MANUAL_REVIEW_THRESHOLD
+        value: 50
+      - key: MAX_PROJECT_DAYS
+        value: 20
+      - key: MAX_AUTO_APPROVE_AMOUNT
+        value: 500.00
+      - key: PLATFORM_FEE_PERCENT
+        value: 0
+      - key: MOCK_AI
+        value: false
+      - key: MOCK_KERNEL
+        value: false
+      - key: DEV_SKIP_VERIFY
+        value: false
+
+  # ----------------------------------------------------------------------------
+  # 2. ESCROWMIND FRONTEND (Next.js 14 App Router)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: escrowmind-web
+    runtime: node
+    rootDir: apps/web
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: escrowmind-api
+          property: host
+      - key: NEXT_PUBLIC_PAYPAL_CLIENT_ID
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
