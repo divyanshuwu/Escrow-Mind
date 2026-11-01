@@ -1,0 +1,363 @@
+{
+  "info": {
+    "_postman_id": "escrowmind-v1-collection",
+    "name": "EscrowMind: AI Freelance Escrow Agent API",
+    "description": "Complete Postman collection for EscrowMind covering all 15 sandbox test scenarios (PayPal AUTHORIZE, partial CAPTURE, PAYOUTS, AI agents, and dispute arbitration).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api", "type": "string" },
+    { "key": "paypalBaseUrl", "value": "https://api-m.sandbox.paypal.com", "type": "string" },
+    { "key": "paypalClientId", "value": "", "type": "string" },
+    { "key": "paypalClientSecret", "value": "", "type": "string" },
+    { "key": "bearerToken", "value": "mock-client-jwt", "type": "string" },
+    { "key": "projectId", "value": "", "type": "string" },
+    { "key": "milestoneId", "value": "", "type": "string" },
+    { "key": "submissionId", "value": "", "type": "string" },
+    { "key": "orderId", "value": "", "type": "string" },
+    { "key": "authorizationId", "value": "", "type": "string" },
+    { "key": "internalWorkflowSecret", "value": "long-random-string", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01. Auth - Get PayPal Sandbox OAuth Token",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            { "key": "username", "value": "{{paypalClientId}}" },
+            { "key": "password", "value": "{{paypalClientSecret}}" }
+          ]
+        },
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [{ "key": "grant_type", "value": "client_credentials" }]
+        },
+        "url": { "raw": "{{paypalBaseUrl}}/v1/oauth2/token" }
+      }
+    },
+    {
+      "name": "02. AI Contract - Parse Plain Brief",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "pm.expect(jsonData.milestones).to.be.an('array');",
+              "pm.expect(jsonData.total_amount).to.eql(200);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "prompt": "Need a modern logo, brand guide and social media banners in 3 days for $200"
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/projects/parse" }
+      }
+    },
+    {
+      "name": "03. Projects - Save Confirmed Contract",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.projectId) { pm.collectionVariables.set('projectId', jsonData.projectId); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "rawPrompt": "Need a modern logo, brand guide and social media banners in 3 days for $200",
+            "contract": {
+              "total_amount": 200,
+              "currency": "USD",
+              "deadline_days": 3,
+              "deliverable_type": "graphic_design",
+              "milestones": [
+                { "seq": 1, "title": "Initial Concepts", "description": "3 logo concepts in PNG", "amount": 50, "deadline_days": 1, "deliverables": ["3x PNG concepts"] },
+                { "seq": 2, "title": "Revisions", "description": "Selected revision in high-res", "amount": 70, "deadline_days": 1, "deliverables": ["1x Revised PNG"] },
+                { "seq": 3, "title": "Final Assets", "description": "Source files AI, SVG and guidelines", "amount": 80, "deadline_days": 1, "deliverables": ["Vector SVG", "AI Source File"] }
+              ]
+            }
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/projects" }
+      }
+    },
+    {
+      "name": "04. Projects - Assign Freelancer",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "freelancerEmail": "sb-freelancer@personal.example.com"
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/projects/{{projectId}}/assign" }
+      }
+    },
+    {
+      "name": "05. PayPal - Create AUTHORIZE Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.orderId) { pm.collectionVariables.set('orderId', jsonData.orderId); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({ "projectId": "{{projectId}}" }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/paypal/orders" }
+      }
+    },
+    {
+      "name": "06. PayPal - Authorize Hold on Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.authorizationId) { pm.collectionVariables.set('authorizationId', jsonData.authorizationId); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "projectId": "{{projectId}}",
+            "orderId": "{{orderId}}"
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/paypal/authorize" }
+      }
+    },
+    {
+      "name": "07. Milestones - Request Signed Upload URL",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "filename": "concepts.png",
+            "contentType": "image/png"
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/milestones/{{milestoneId}}/upload-url" }
+      }
+    },
+    {
+      "name": "08. Milestones - Submit Deliverables for Verification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.submissionId) { pm.collectionVariables.set('submissionId', jsonData.submissionId); }"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "paths": ["submissions/{{milestoneId}}/concepts.png"],
+            "note": "Here are the 3 logo variations as requested."
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/milestones/{{milestoneId}}/submit" }
+      }
+    },
+    {
+      "name": "09. Workflows - Verification Engine Callback (Score >= 80 Auto-Release)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-Internal-Secret", "value": "{{internalWorkflowSecret}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "submissionId": "{{submissionId}}",
+            "score": 88,
+            "report": {
+              "score": 88,
+              "deliverables": [
+                { "name": "3x PNG concepts", "found": true, "confidence": 0.92, "reason": "3 distinct logo concepts verified." }
+              ],
+              "portfolio": { "checked": true, "trust": 85, "notes": "Active portfolio verified." },
+              "flags": [],
+              "summary_for_client": "All deliverables satisfied."
+            }
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/workflows/verify" }
+      }
+    },
+    {
+      "name": "10. Milestones - Manual Client Review (Score 50-79)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "decision": "APPROVE",
+            "comment": "Concepts look great, approved manually."
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/milestones/{{milestoneId}}/review" }
+      }
+    },
+    {
+      "name": "11. Milestones - Flag Dispute & Freeze Escrow",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "reason": "Submitted files are corrupted and do not match agreed scope."
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/milestones/{{milestoneId}}/dispute" }
+      }
+    },
+    {
+      "name": "12. Admin - Resolve Milestone Dispute",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "action": "REFUND",
+            "notes": "Evidence verified files missing critical source vector assets."
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/milestones/{{milestoneId}}/resolve-dispute" }
+      }
+    },
+    {
+      "name": "13. Projects - View Money Ledger Audit Trail",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/projects/{{projectId}}/ledger" }
+      }
+    },
+    {
+      "name": "14. Projects - Generate PayPal Invoice",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{bearerToken}}" }
+        ],
+        "url": { "raw": "{{baseUrl}}/projects/{{projectId}}/invoice" }
+      }
+    },
+    {
+      "name": "15. Webhooks - Simulate PayPal Webhook Event",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "paypal-transmission-id", "value": "test-transmission-001" },
+          { "key": "paypal-transmission-time", "value": "2026-10-24T12:00:00Z" },
+          { "key": "paypal-cert-url", "value": "https://api.sandbox.paypal.com/v1/notifications/certs/CERT-360" },
+          { "key": "paypal-auth-algo", "value": "SHA256withRSA" },
+          { "key": "paypal-transmission-sig", "value": "mock-sig" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": JSON.stringify({
+            "id": "WH-TEST-CAPTURE-001",
+            "event_version": "1.0",
+            "create_time": "2026-10-24T12:00:00Z",
+            "event_type": "PAYMENT.CAPTURE.COMPLETED",
+            "resource_type": "capture",
+            "resource": {
+              "id": "3RM92092UW6741414",
+              "status": "COMPLETED",
+              "amount": { "total": "50.00", "currency": "USD" },
+              "invoice_id": "{{milestoneId}}"
+            }
+          }, null, 2)
+        },
+        "url": { "raw": "{{baseUrl}}/webhooks/paypal" }
+      }
+    }
+  ]
+}
