@@ -7,6 +7,19 @@ import { createAuthorizeOrder, authorizeOrder } from '../services/paypal';
 
 const router = Router();
 
+// 0. GET /paypal/config - Public PayPal SDK configuration
+router.get('/paypal/config', (req: Request, res: Response) => {
+  const rawClientId = process.env.PAYPAL_CLIENT_ID || process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+  const isMock = !rawClientId || rawClientId.startsWith('your_') || rawClientId === 'test';
+
+  res.json({
+    clientId: isMock ? 'sb' : rawClientId,
+    merchantId: process.env.PAYPAL_MERCHANT_ID || process.env.NEXT_PUBLIC_PAYPAL_MERCHANT_ID || 'U35M58NMFT9N4',
+    currency: 'USD',
+    intent: 'authorize',
+  });
+});
+
 // 1. POST /paypal/orders - Create intent: AUTHORIZE order
 const CreateOrderSchema = z.object({
   projectId: z.string(),
@@ -29,10 +42,11 @@ router.post('/paypal/orders', requireAuth, requireRole('client'), validateBody(C
   try {
     const orderData = await createAuthorizeOrder(project.id, project.total_amount.toFixed(2));
     const orderId = orderData.id;
+    const payeeMerchantId = orderData.purchase_units?.[0]?.payee?.merchant_id || process.env.PAYPAL_MERCHANT_ID || 'U35M58NMFT9N4';
 
     await db.updateProject(project.id, { paypal_order_id: orderId });
 
-    res.json({ orderId });
+    res.json({ orderId, payeeMerchantId });
   } catch (err: any) {
     res.status(502).json({
       error: { code: 'PAYPAL_ORDER_FAILED', message: err.message, debugId: err.debugId },

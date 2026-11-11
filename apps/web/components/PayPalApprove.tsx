@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { PayPalScriptProvider, PayPalButtons } from '@paypal/react-paypal-js';
 import { ShieldCheck, Zap, AlertCircle } from 'lucide-react';
 
@@ -19,7 +19,37 @@ export const PayPalApprove: React.FC<PayPalApproveProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-  const clientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'sb';
+  const defaultClientId = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || 'AQif9-RhfeD_ngB8mWZRXMUlnDRDPpI_1Uh1iOlKQImtrY4Ocp80D_d8fujmj4Mz5t_6gR_-Z5XmFh0Z';
+  const defaultMerchantId = process.env.NEXT_PUBLIC_PAYPAL_MERCHANT_ID || 'U35M58NMFT9N4';
+
+  const [paypalConfig, setPaypalConfig] = useState({
+    clientId: defaultClientId === 'test' ? 'sb' : defaultClientId,
+    merchantId: defaultMerchantId,
+  });
+
+  // Dynamically synchronize PayPal configuration with backend if available
+  useEffect(() => {
+    let isMounted = true;
+    fetch(`${apiUrl}/api/paypal/config`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((cfg) => {
+        if (!isMounted || !cfg) return;
+        setPaypalConfig((prev) => ({
+          clientId:
+            cfg.clientId && cfg.clientId !== 'test' && !cfg.clientId.startsWith('your_')
+              ? cfg.clientId
+              : prev.clientId,
+          merchantId: cfg.merchantId || prev.merchantId,
+        }));
+      })
+      .catch((err) => {
+        console.warn('[PayPalApprove] Backend config fetch skipped, using default config:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [apiUrl]);
 
   // 1. Live PayPal SDK Order Creation
   const handleCreateOrder = async (data: any, actions: any): Promise<string> => {
@@ -41,6 +71,9 @@ export const PayPalApprove: React.FC<PayPalApproveProps> = ({
 
       // If backend returned a live PayPal order ID (not a simulated mock), use it
       if (res.ok && serverData.orderId && !serverData.orderId.startsWith('ORDER-')) {
+        if (serverData.payeeMerchantId && serverData.payeeMerchantId !== paypalConfig.merchantId) {
+          setPaypalConfig((prev) => ({ ...prev, merchantId: serverData.payeeMerchantId }));
+        }
         return serverData.orderId;
       }
 
@@ -57,6 +90,11 @@ export const PayPalApprove: React.FC<PayPalApproveProps> = ({
                 currency_code: 'USD',
                 value: totalAmount.toFixed(2),
               },
+              payee: paypalConfig.merchantId
+                ? {
+                    merchant_id: paypalConfig.merchantId,
+                  }
+                : undefined,
             },
           ],
         });
@@ -187,8 +225,10 @@ export const PayPalApprove: React.FC<PayPalApproveProps> = ({
 
       {/* Option B: Real PayPal JS SDK Popup */}
       <PayPalScriptProvider
+        key={`${paypalConfig.clientId}-${paypalConfig.merchantId}`}
         options={{
-          clientId: clientId === 'test' ? 'sb' : clientId,
+          clientId: paypalConfig.clientId,
+          merchantId: paypalConfig.merchantId,
           intent: 'authorize',
           currency: 'USD',
         }}

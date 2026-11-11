@@ -39,6 +39,8 @@ services:
         value: "true"
       - key: DEV_SKIP_VERIFY
         value: "false"
+      - key: PAYPAL_MERCHANT_ID
+        value: U35M58NMFT9N4
 
   # Next.js 14 frontend
   - type: web
@@ -69,4 +71,6 @@ services:
           name: escrowmind-api
           envVarKey: RENDER_EXTERNAL_URL
       - key: NEXT_PUBLIC_PAYPAL_CLIENT_ID
-        value: sb
+        value: AQif9-RhfeD_ngB8mWZRXMUlnDRDPpI_1Uh1iOlKQImtrY4Ocp80D_d8fujmj4Mz5t_6gR_-Z5XmFh0Z
+      - key: NEXT_PUBLIC_PAYPAL_MERCHANT_ID
+        value: U35M58NMFT9N4
