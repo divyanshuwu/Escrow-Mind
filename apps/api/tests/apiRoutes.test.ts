@@ -2,6 +2,9 @@ import request from 'supertest';
 import { createApp } from '../src/app';
 import { db } from '../src/services/db';
 
+// Use a deterministic secret for integration tests.
+process.env.INTERNAL_WORKFLOW_SECRET = 'long-random-string';
+
 const app = createApp();
 
 describe('EscrowMind End-to-End API Routes Integration Tests', () => {
