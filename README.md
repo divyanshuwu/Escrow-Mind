@@ -1,6 +1,8 @@
 # EscrowMind: AI Freelance Escrow Agent
 > **Autonomous Fiduciary AI for Decentralized & Micro-Milestone Commerce**  
 > *PayPal AI Hackathon 2026 | Track: Agentic Commerce, Open Innovation*
+>
+> HACKTHON LINK https://devpost.com/software/escrowmind-ai-freelance-escrow-agent#updates
 
 [![PayPal REST](https://img.shields.io/badge/PayPal-REST_API_v2-003087?logo=paypal&logoColor=white)](https://developer.paypal.com)
 [![Next.js 14](https://img.shields.io/badge/Frontend-Next.js_14-black?logo=next.js)](https://nextjs.org)
